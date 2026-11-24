@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mobility Health Check Console</title>
+<style>
+    :root {
+        --bg-color: #0f172a;
+        --card-bg: rgba(15, 23, 42, 0.95);
+        --text-primary: #f8fafc;
+        --text-secondary: #94a3b8;
+        --accent-green: #22c55e;
+        --accent-red: #ef4444;
+        --accent-green-glow: rgba(34, 197, 94, 0.5);
+        --accent-red-glow: rgba(239, 68, 68, 0.5);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: var(--bg-color);
+        background-repeat: no-repeat;
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+        color: var(--text-primary);
+        min-height: 100vh;
+    }
+
+    /* ---------- Top navigation (replaces all the per-page buttons) ---------- */
+    .topbar {
+        position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+        display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+        gap: 10px; padding: 12px 20px;
+        background: var(--card-bg);
+        backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .topbar.hidden { display: none; }
+    .nav-group { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .nav-button {
+        background: rgba(255,255,255,0.04);
+        color: var(--text-primary);
+        padding: 8px 14px;
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 8px;
+        font-size: 0.9em; font-weight: 500;
+        text-decoration: none; cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .nav-button:hover { background: rgba(30,41,59,0.9); border-color: rgba(255,255,255,0.3); }
+    .nav-button.active { background: rgba(135,206,250,0.18); border-color: rgba(135,206,250,0.7); }
+    .nav-label { color: var(--text-secondary); font-size: 0.8em; margin-right: 2px; }
+
+    /* ---------- Home ---------- */
+    #home {
+        display: none;
+        min-height: 100vh;
+        flex-direction: column; align-items: center; justify-content: center;
+        color: #e0e0e0;
+    }
+    #home .container {
+        background: rgba(255,255,255,0.05);
+        backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+        padding: 40px 50px;
+        border-radius: 15px;
+        border: 1px solid rgba(255,255,255,0.1);
+        box-shadow: 0 8px 32px 0 rgba(0,0,0,0.37);
+        text-align: center;
+        width: 320px; max-width: 92vw;
+    }
+    #home h1 { color: #fff; font-size: 24px; margin-bottom: 5px; font-weight: 500; }
+    #home p { color: #b0b0b0; font-size: 14px; margin-bottom: 30px; }
+    .button-group { display: flex; flex-direction: column; gap: 15px; }
+    .button-group a {
+        display: block;
+        color: #fff; text-decoration: none;
+        padding: 15px 30px;
+        border: 1px solid rgba(135,206,250,0.5);
+        border-radius: 8px;
+        font-size: 16px;
+        box-shadow: 0 0 10px rgba(135,206,250,0.2);
+        transition: all 0.3s ease;
+    }
+    .button-group a:hover {
+        background: rgba(135,206,250,0.1);
+        border-color: rgba(135,206,250,0.8);
+        box-shadow: 0 0 15px rgba(135,206,250,0.5);
+        transform: translateY(-2px);
+    }
+
+    /* ---------- Dashboards ---------- */
+    #dashboards {
+        display: none;
+        flex-direction: row; flex-wrap: wrap;
+        justify-content: center; align-items: flex-start;
+        gap: 2rem; padding: 2rem; padding-top: 6rem;
+    }
+    .dashboard {
+        width: 100%; max-width: 500px;
+        background: var(--card-bg);
+        backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,0.1);
+        padding: 2rem;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+    }
+    .dashboard.wide { max-width: 650px; }
+    @media (max-width: 960px) {
+        #dashboards { flex-direction: column; align-items: center; padding-top: 8rem; }
+        .dashboard, .dashboard.wide { max-width: 650px; }
+    }
+
+    header { margin-bottom: 2rem; text-align: center; }
+    h2 { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.025em; margin-bottom: 0.5rem; }
+    p.subtitle { color: var(--text-secondary); font-size: 0.875rem; }
+
+    .status-list { display: flex; flex-direction: column; gap: 1rem; }
+    .status-item {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 1rem; padding: 1rem;
+        background: rgba(255,255,255,0.03);
+        border-radius: 8px;
+        border: 1px solid rgba(255,255,255,0.05);
+        transition: transform 0.2s ease, background 0.2s ease;
+    }
+    .status-item:hover { transform: translateY(-2px); background: rgba(255,255,255,0.05); }
+    .service-info { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+    .service-name { font-weight: 500; font-size: 1rem; }
+    .service-url { color: var(--text-secondary); font-size: 0.75rem; font-family: monospace; word-break: break-all; }
+    .signal-container { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
+    .status-text { font-size: 0.875rem; font-weight: 500; }
+    .signal { width: 12px; height: 12px; border-radius: 50%; }
+
+    .status-online .signal { background: var(--accent-green); box-shadow: 0 0 12px var(--accent-green-glow); animation: pulse-green 2s infinite; }
+    .status-online .status-text { color: var(--accent-green); }
+    .status-offline .signal { background: var(--accent-red); box-shadow: 0 0 12px var(--accent-red-glow); }
+    .status-offline .status-text { color: var(--accent-red); }
+    .status-checking .signal { background: var(--text-secondary); animation: blink 1s infinite; }
+    .status-checking .status-text { color: var(--text-secondary); }
+
+    @keyframes pulse-green {
+        0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(34,197,94,0); }
+        100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+    }
+    @keyframes blink { 50% { opacity: 0.5; } }
+</style>
+</head>
+<body>
+
+<nav class="topbar hidden" id="topbar">
+    <div class="nav-group">
+        <a class="nav-button" href="#home">&larr; Home</a>
+    </div>
+    <div class="nav-group" id="nav-systems"></div>
+    <div class="nav-group" id="nav-env"></div>
+</nav>
+
+<section id="home">
+    <div class="container">
+        <h1>Mobility Health Check</h1>
+        <p>Select a system to view its status</p>
+        <div class="button-group">
+            <a href="#mqt-prod">MQT Health Check</a>
+            <a href="#sim-prod">SIM Health Check</a>
+            <a href="#clarity-prod">Clarity Health Check</a>
+        </div>
+    </div>
+</section>
+
+<main id="dashboards"></main>
+
+<script>
+/* =====================================================================
+   CONFIGURATION
+   One entry per page. Each page has a list of dashboards (cards);
+   each card has a title and a list of services to check.
+   ===================================================================== */
+
+const IMG = {
+    home:    "https://developer.android.com/static/images/security/security_hero-cluster.svg",
+    mqt:     "https://blog.paessler.com/hubfs/2020/visuals/header/Blogheader_MQTT.jpg",
+    sim:     "https://img.freepik.com/free-vector/shortage-goods-flat-set-compositions-with-people-few-goods-connected-with-dashed-lines-vector-illustration_98292-8812.jpg?semt=ais_hybrid&w=740&q=80",
+    clarity: "https://redbeam.com/hubfs/The_Best_RFID_Alternatives_header.png"
+};
+
+// Helper to build a list of services on one host across several ports
+const ports = (prefix, host, list, path) =>
+    list.map((p, i) => ({ name: `${prefix}${i + 1}`, url: `http://${host}:${p}${path}` }));
+
+const PAGES = {
+    /* ---------------------------- MQT ---------------------------- */
+    "mqt-prod": {
+        system: "mqt", env: "prod", bg: IMG.mqt,
+        dashboards: [
+            { title: "MQT Katy Health", services: [
+                { name: "PLAPMQT01E", url: "http://plapmqt01e:3001/healthcheck" },
+                { name: "PLAPMQT02E", url: "http://plapmqt02e:3001/healthcheck" },
+                { name: "PLAPMQT03E", url: "http://plapmqt03e:3001/healthcheck" },
+                { name: "PLAPMQT04E", url: "http://plapmqt04e:3001/healthcheck" },
+            ]},
+            { title: "MQT Austin Health", services: [
+                { name: "PLAUSAPMQT01E", url: "http://plausapmqt01e:3001/healthcheck" },
+                { name: "PLAUSAPMQT02E", url: "http://plausapmqt02e:3001/healthcheck" },
+                { name: "PLAUSAPMQT03E", url: "http://plausapmqt03e:3001/healthcheck" },
+                { name: "PLAUSAPMQT04E", url: "http://plausapmqt04e:3001/healthcheck" },
+            ]},
+            { title: "Loadbalancer Health", wide: true, services: [
+                { name: "KATY LB", url: "http://ptc70notification.academy.com:3001/healthcheck" },
+                { name: "AUSTIN LB", url: "http://ptc70notificationaus.academy.com:3001/healthcheck" },
+                { name: "PTC70_Notification_GLB", url: "http://ptc70notificationglb.iglb.academy.com:3001/healthcheck" },
+            ]},
+        ]
+    },
+    "mqt-uat": {
+        system: "mqt", env: "uat", bg: IMG.mqt,
+        dashboards: [
+            { title: "MQT Katy Health", wide: true, services: [
+                { name: "ULAPMQT02E", url: "http://ulapmqt02e:3001/healthcheck" },
+                { name: "ULAPMQT03E", url: "http://ulapmqt03e:3001/healthcheck" },
+                { name: "ULAPMQT04E", url: "http://ulapmqt04e:3001/healthcheck" },
+                { name: "ULAPMQT05E", url: "http://ulapmqt05e:3001/healthcheck" },
+                { name: "UAT LB", url: "http://utc70notification.academy.com:3001/healthcheck" },
+            ]},
+        ]
+    },
+
+    /* ---------------------------- SIM ---------------------------- */
+    "sim-prod": {
+        system: "sim", env: "prod", bg: IMG.sim,
+        dashboards: [
+            { title: "PLAPSMS01E Health", services: [
+                ...ports("Server1SimMobile", "plapsms01e", [9020, 9022, 9024, 9026], "/v1/status"),
+                ...ports("Server1SimApi",    "plapsms01e", [8020, 8022, 8024, 8026], "/v1/status"),
+            ]},
+            { title: "PLAPSMS02E Health", services: [
+                ...ports("Server2SimMobile", "plapsms02e", [9020, 9022, 9024, 9026], "/v1/status"),
+                ...ports("Server2SimApi",    "plapsms02e", [8020, 8022, 8024, 8026], "/v1/status"),
+            ]},
+            { title: "Loadbalancer Health", wide: true, services: [
+                { name: "SIM MOBILE LB", url: "https://simmobile.academy.com/v1/status" },
+                { name: "SIM API LB",    url: "https://simapi.academy.com/v1/status" },
+            ]},
+        ]
+    },
+    "sim-uat": {
+        system: "sim", env: "uat", bg: IMG.sim,
+        dashboards: [
+            { title: "ULAPSMS01E Health", services: [
+                ...ports("Server1SimMobile", "ulapsms01e", [9020, 9022, 9024, 9026], "/v1/status"),
+                ...ports("Server1SimApi",    "ulapsms01e", [8020, 8022, 8024, 8026], "/v1/status"),
+            ]},
+            { title: "ULAPSMS02E Health", services: [
+                ...ports("Server2SimMobile", "ulapsms02e", [9020, 9022, 9024, 9026], "/v1/status"),
+                ...ports("Server2SimApi",    "ulapsms02e", [8020, 8022, 8024, 8026], "/v1/status"),
+            ]},
+            { title: "Loadbalancer Health", wide: true, services: [
+                { name: "SIM MOBILE LB", url: "https://usimmobile.academy.com/v1/status" },
+                { name: "SIM API LB",    url: "https://usimapi.academy.com/v1/status" },
+            ]},
+        ]
+    },
+
+    /* --------------------------- CLARITY --------------------------- */
+    "clarity-prod": {
+        system: "clarity", env: "prod", bg: IMG.clarity,
+        dashboards: [
+            { title: "PLAPSIMREST01E Health", services: ports("Server1SimApi", "plapsimrest01e", [8020, 8022, 8024, 8026], "/v1/status") },
+            { title: "PLAPSIMREST02E Health", services: ports("Server2SimApi", "plapsimrest02e", [8020, 8022, 8024, 8026], "/v1/status") },
+            { title: "Load Balancer Health", wide: true, services: [
+                { name: "SIMAPI PRD LB", url: "https://simapiprd.academy.com/v1/status" },
+            ]},
+        ]
+    },
+    "clarity-uat": {
+        system: "clarity", env: "uat", bg: IMG.clarity,
+        dashboards: [
+            { title: "ULAPSIMREST01E Health", services: ports("Server1SimApi", "ulapsimrest01e", [8020, 8022, 8024, 8026], "/v1/status") },
+            { title: "ULAPSIMREST02E Health", services: ports("Server2SimApi", "ulapsimrest02e", [8020, 8022, 8024, 8026], "/v1/status") },
+            { title: "Load Balancer Health", wide: true, services: [
+                { name: "SIMAPI UAT LB", url: "https://simapiuat.academy.com/v1/status" },
+            ]},
+        ]
+    },
+};
+
+const SYSTEMS = [
+    { id: "mqt", label: "MQT" },
+    { id: "sim", label: "SIM" },
+    { id: "clarity", label: "Clarity" },
+];
+
+const REFRESH_MS = 30000;
+
+/* =====================================================================
+   STATUS CHECK LOGIC
+   ===================================================================== */
+
+let refreshTimer = null;
+let renderToken = 0; // lets us ignore results from a page we already left
+
+function createStatusItem(service, id) {
+    const div = document.createElement("div");
+    div.className = "status-item status-checking";
+    div.id = id;
+    div.innerHTML = `
+        <div class="service-info">
+            <span class="service-name"></span>
+            <span class="service-url"></span>
+        </div>
+        <div class="signal-container">
+            <span class="status-text">Checking...</span>
+            <div class="signal"></div>
+        </div>`;
+    div.querySelector(".service-name").textContent = service.name;
+    div.querySelector(".service-url").textContent = service.url;
+    return div;
+}
+
+function updateStatus(itemId, isOnline) {
+    const item = document.getElementById(itemId);
+    if (!item) return;
+    item.classList.remove("status-checking", "status-online", "status-offline");
+    item.classList.add(isOnline ? "status-online" : "status-offline");
+    item.querySelector(".status-text").textContent = isOnline ? "Operational" : "Unreachable";
+}
+
+async function checkService(service, itemId, token) {
+    try {
+        // no-cors: only confirms the request could be made, not the HTTP status
+        await fetch(service.url, { mode: "no-cors", cache: "no-store" });
+        if (token === renderToken) updateStatus(itemId, true);
+    } catch (err) {
+        console.warn("Failed to reach", service.url, err);
+        if (token === renderToken) updateStatus(itemId, false);
+    }
+}
+
+function runChecks(page, token) {
+    const stamp = new Date().toLocaleTimeString();
+    page.dashboards.forEach((d, di) => {
+        document.getElementById(`updated-${di}`).textContent = `Last updated: ${stamp}`;
+        d.services.forEach((s, si) => checkService(s, `svc-${di}-${si}`, token));
+    });
+}
+
+/* =====================================================================
+   RENDERING / ROUTING
+   ===================================================================== */
+
+const $home = document.getElementById("home");
+const $dash = document.getElementById("dashboards");
+const $topbar = document.getElementById("topbar");
+
+function buildNav(pageKey) {
+    const page = PAGES[pageKey];
+    const sysNav = document.getElementById("nav-systems");
+    const envNav = document.getElementById("nav-env");
+    sysNav.innerHTML = '<span class="nav-label">System</span>';
+    envNav.innerHTML = '<span class="nav-label">Environment</span>';
+
+    SYSTEMS.forEach(s => {
+        const a = document.createElement("a");
+        a.className = "nav-button" + (s.id === page.system ? " active" : "");
+        a.href = `#${s.id}-${page.env}`;      // keep the same environment when switching system
+        a.textContent = s.label;
+        sysNav.appendChild(a);
+    });
+    ["prod", "uat"].forEach(env => {
+        const a = document.createElement("a");
+        a.className = "nav-button" + (env === page.env ? " active" : "");
+        a.href = `#${page.system}-${env}`;    // keep the same system when switching environment
+        a.textContent = env.toUpperCase();
+        envNav.appendChild(a);
+    });
+}
+
+function showHome() {
+    clearInterval(refreshTimer);
+    renderToken++;
+    $topbar.classList.add("hidden");
+    $dash.style.display = "none";
+    $home.style.display = "flex";
+    document.body.style.backgroundImage = `url('${IMG.home}')`;
+    document.body.style.backgroundColor = "#000";
+    document.title = "Mobility Health Check Console";
+}
+
+function showPage(key) {
+    const page = PAGES[key];
+    clearInterval(refreshTimer);
+    const token = ++renderToken;
+
+    $home.style.display = "none";
+    $topbar.classList.remove("hidden");
+    buildNav(key);
+
+    document.body.style.backgroundColor = "var(--bg-color)";
+    document.body.style.backgroundImage = `url('${page.bg}')`;
+    document.title = `${page.system.toUpperCase()} ${page.env.toUpperCase()} | System Status`;
+
+    $dash.innerHTML = "";
+    page.dashboards.forEach((d, di) => {
+        const card = document.createElement("div");
+        card.className = "dashboard" + (d.wide ? " wide" : "");
+        card.innerHTML = `
+            <header>
+                <h2></h2>
+                <p class="subtitle" id="updated-${di}">Last updated: Never</p>
+            </header>
+            <div class="status-list"></div>`;
+        card.querySelector("h2").textContent = d.title;
+        const list = card.querySelector(".status-list");
+        d.services.forEach((s, si) => list.appendChild(createStatusItem(s, `svc-${di}-${si}`)));
+        $dash.appendChild(card);
+    });
+    $dash.style.display = "flex";
+    window.scrollTo(0, 0);
+
+    runChecks(page, token);
+    refreshTimer = setInterval(() => runChecks(page, token), REFRESH_MS);
+}
+
+function route() {
+    const key = location.hash.replace("#", "");
+    if (PAGES[key]) showPage(key);
+    else showHome();
+}
+
+window.addEventListener("hashchange", route);
+route();
+</script>
+</body>
+</html>
